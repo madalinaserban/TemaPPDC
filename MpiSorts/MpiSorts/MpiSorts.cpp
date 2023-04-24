@@ -70,6 +70,32 @@ int isSorted(int arr[], int n)
     }
     return 1;
 }
+void bucketSort(int arr[], int n)
+{
+    int i, j, count;
+    int* bucket = (int*)malloc(n * sizeof(int));
+
+    for (i = 0; i < n; i++)
+    {
+        bucket[i] = 0;
+    }
+
+    for (i = 0; i < n; i++)
+    {
+        (bucket[arr[i]])++;
+    }
+
+    for (i = 0, j = 0; i < n; i++)
+    {
+        for (count = bucket[i]; count > 0; count--)
+        {
+            arr[j++] = i;
+        }
+    }
+
+    free(bucket);
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -135,6 +161,27 @@ int main(int argc, char* argv[])
 
         start_time = MPI_Wtime();
     }
+
+    bucketSort(arr, n);
+
+    if (rank == 0)
+    {
+        end_time = MPI_Wtime();
+
+        if (isSorted(arr, n))
+        {
+            printf("Bucket sort: Array is sorted\n");
+        }
+        else
+        {
+            printf("Bucket sort: Array is NOT sorted\n");
+        }
+
+        printf("Bucket sort: Time taken = %lf seconds\n", end_time - start_time);
+
+        start_time = MPI_Wtime();
+    }
+
 
     bitonicSort(recvbuf, sendcounts[rank], 1);
 
