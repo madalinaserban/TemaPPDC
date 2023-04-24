@@ -1,0 +1,12 @@
+﻿  MpiSorts.cpp
+MpiSorts.obj : error LNK2019: unresolved external symbol MPI_Barrier referenced in function main
+MpiSorts.obj : error LNK2019: unresolved external symbol MPI_Bcast referenced in function main
+MpiSorts.obj : error LNK2019: unresolved external symbol MPI_Gatherv referenced in function main
+MpiSorts.obj : error LNK2019: unresolved external symbol MPI_Scatterv referenced in function main
+MpiSorts.obj : error LNK2019: unresolved external symbol MPI_Comm_size referenced in function main
+MpiSorts.obj : error LNK2019: unresolved external symbol MPI_Comm_rank referenced in function main
+MpiSorts.obj : error LNK2019: unresolved external symbol MPI_Wtime referenced in function main
+MpiSorts.obj : error LNK2019: unresolved external symbol MPI_Init referenced in function main
+MpiSorts.obj : error LNK2019: unresolved external symbol MPI_Finalize referenced in function main
+C:\Program Files (x86)\Microsoft SDKs\MPI\Lib\x86\msmpi.lib : warning LNK4272: library machine type 'x86' conflicts with target machine type 'x64'
+C:\Anul3\Semestrul2\PPDC\TemaPPDC\MpiSorts\x64\Debug\MpiSorts.exe : fatal error LNK1120: 9 unresolved externals
