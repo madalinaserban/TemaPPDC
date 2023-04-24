@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <mpi.h>
+#include "mpi.h"
 void bitonicSort(int a[], int low, int cnt, int dir);
 void bitonicMerge(int a[], int low, int cnt, int dir);
 void exchange(int a[], int i, int j);
