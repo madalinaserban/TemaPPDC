@@ -1,2 +1,5 @@
 ﻿  MpiSorts.cpp
+C:\Anul3\Semestrul2\PPDC\TemaPPDC\MpiSorts\MpiSorts\MpiSorts.cpp(26,26): warning C4101: 'recvbuf': unreferenced local variable
+C:\Anul3\Semestrul2\PPDC\TemaPPDC\MpiSorts\MpiSorts\MpiSorts.cpp(26,37): warning C4101: 'bitonicRecvbuf': unreferenced local variable
+C:\Anul3\Semestrul2\PPDC\TemaPPDC\MpiSorts\MpiSorts\MpiSorts.cpp(212,8): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
   MpiSorts.vcxproj -> C:\Anul3\Semestrul2\PPDC\TemaPPDC\MpiSorts\Debug\MpiSorts.exe

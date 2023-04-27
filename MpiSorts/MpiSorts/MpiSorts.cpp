@@ -4,17 +4,20 @@
 #include <time.h>
 #include<string.h>
 
-void exchange(int a[], int i, int j);
-void compare(int a[], int i, int j, int dir);
-void merge_sort(int n, double* a);
-void swap(double* a, double* b);
-double* merge_array(int n, double* a, int m, double* b);
 int MPI_Is_sorted(int n, double* array, int* isSorted, int root, MPI_Comm comm);
-void MPI_Bitonic_sort(int a[], int n, int dir);
-void MPI_Shell_sort(int a[], int n);
+int MPI_Bitonic_sort(int n, double* a, int root, MPI_Comm comm);
+int MPI_Shell_sort(double* a, int n, int root, MPI_Comm comm);
 int MPI_Sort_bucket(int n, double* a, double max, int root, MPI_Comm comm);
 int MPI_Sort_oddEven(int n, double* array, int root, MPI_Comm comm);
 int MPI_Exchange(int n, double* array, int rank1, int rank2, MPI_Comm comm);
+int MPI_Direct_Sort(int n, double* array, int root, MPI_Comm comm);
+
+void exchange(double *a, int i, int j);
+void compare(double* a, int i, int j, int dir);
+void merge_sort(int n, double* a);
+void swap(double* a, double* b);
+void sort(int n, double* a);
+double* merge_array(int n, double* a, int m, double* b);
 double* merge(int n, double* array, int m, double* b);
 
 
@@ -46,38 +49,15 @@ int main(int argc, char* argv[])
 	//copy of the vector
 
 	double* a_copy = (double*)calloc(n, sizeof(double));
+	memcpy(a_copy, a, n * sizeof(double));
 
 	double start_time, end_time;
 	MPI_Barrier(MPI_COMM_WORLD);
 	//SHELL SORT
+
+	printf("1.\n");
 	start_time = MPI_Wtime();
-
-	MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-	int chunk_size = n / size;
-	int remainder = n % size;
-	int* sendcounts = (int*)malloc(size * sizeof(int));
-	int* displs = (int*)malloc(size * sizeof(int));
-
-	for (i = 0; i < size; i++)
-	{
-		sendcounts[i] = chunk_size;
-		if (remainder > 0)
-		{
-			sendcounts[i]++;
-			remainder--;
-		}
-		displs[i] = (i > 0) ? (displs[i - 1] + sendcounts[i - 1]) : 0;
-	}
-
-	recvbuf = (int*)malloc(sendcounts[rank] * sizeof(int));
-	bitonicRecvbuf = (int*)malloc(sendcounts[rank] * sizeof(int));
-
-	MPI_Scatterv(a, sendcounts, displs, MPI_INT, recvbuf, sendcounts[rank], MPI_INT, 0, MPI_COMM_WORLD);
-
-	MPI_Shell_sort(recvbuf, sendcounts[rank]);
-
-	MPI_Gatherv(recvbuf, sendcounts[rank], MPI_INT, a, sendcounts, displs, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Shell_sort(a,n,0, MPI_COMM_WORLD);
 
 	if (rank == 0)
 	{
@@ -96,10 +76,11 @@ int main(int argc, char* argv[])
 		printf("Shell sort: Time taken = %lf seconds\n", end_time - start_time);
 
 	}
-	start_time = MPI_Wtime();
 
 	//BUCKET SORT
+	printf("2.\n");
 	memcpy(a_copy, a, n * sizeof(double));
+	start_time = MPI_Wtime();
 	MPI_Sort_bucket(n, a_copy, m, 0, MPI_COMM_WORLD);
 
 	if (rank == 0)
@@ -116,11 +97,11 @@ int main(int argc, char* argv[])
 		}
 
 		printf("Bucket sort: Time taken = %lf seconds\n", end_time - start_time);
-
-		start_time = MPI_Wtime();
 	}
 
 	//ODD EVEN SORT
+	printf("3.\n");
+	start_time = MPI_Wtime();
 	memcpy(a_copy, a, n * sizeof(double));
 	MPI_Sort_oddEven(n, a_copy, 0, MPI_COMM_WORLD);
 
@@ -140,15 +121,34 @@ int main(int argc, char* argv[])
 		printf("Odd even sort: Time taken = %lf seconds\n", end_time - start_time);
 
 	}
-	free(a_copy);
+
+	//DIRECT SORT
+	//memcpy(a_copy, a, n * sizeof(double));
+	//printf("4.\n");
+	//start_time = MPI_Wtime();
+	//MPI_Direct_Sort(n, a, 0, MPI_COMM_WORLD);
+	//if (rank == 0)
+	//{
+	//	end_time = MPI_Wtime();
+	//	MPI_Is_sorted(n / size, a_copy, &isSorted, 0, MPI_COMM_WORLD);
+	//	if (isSorted)
+	//	{
+	//		printf("Direct sort: Array is sorted\n");
+	//	}
+	//	else
+	//	{
+	//		printf("Direct sort: Array is NOT sorted\n");
+	//	}
+
+	//	printf("Direct sort: Time taken = %lf seconds\n", end_time - start_time);
+
+	//}
+	//free(a_copy);
 
 	//BITONIC SORT
-
+	printf("5.\n");
 	start_time = MPI_Wtime();
-	MPI_Bitonic_sort(recvbuf, sendcounts[rank], 1);
-
-	MPI_Gatherv(recvbuf, sendcounts[rank], MPI_INT, a, sendcounts, displs, MPI_INT, 0, MPI_COMM_WORLD);
-
+	MPI_Bitonic_sort(n,a,0, MPI_COMM_WORLD);
 	if (rank == 0)
 	{
 		end_time = MPI_Wtime();
@@ -167,43 +167,58 @@ int main(int argc, char* argv[])
 		free(a);
 	}
 
-	free(recvbuf);
-	free(sendcounts);
-	free(displs);
-	free(bitonicRecvbuf);
 
 	MPI_Finalize();
+	free(a_copy);
 	return 0;
 }
-void MPI_Shell_sort(int a[], int n)
+int MPI_Shell_sort(double* a, int n, int root, MPI_Comm comm)
 {
-	int i, j, gap, temp;
-	for (gap = n / 2; gap > 0; gap /= 2)
-	{
-		for (i = gap; i < n; i++)
-		{
-			for (j = i - gap; j >= 0 && a[j] > a[j + gap]; j -= gap)
-			{
-				temp = a[j];
-				a[j] = a[j + gap];
-				a[j + gap] = temp;
+	int rank, size;
+	int gap_size = 8;
+	int gap_array[8] = { 1, 4, 10, 23, 57, 132, 301, 701 };
+
+	MPI_Comm_rank(comm, &rank);
+	MPI_Comm_size(comm, &size);
+
+	int local_n = n / size;
+	double* local_array = (double*)malloc(local_n * sizeof(double));
+
+	MPI_Scatter(a, local_n, MPI_DOUBLE, local_array, local_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+
+
+	for (int i = gap_size - 1; i >= 0; i--) {
+		int gap = gap_array[i];
+		for (int j = gap; j < n; j++) {
+			double temp = a[j];
+			int k;
+			for (k = j; k >= gap && a[k - gap] > temp; k -= gap) {
+				a[k] = a[k - gap];
 			}
+			a[k] = temp;
 		}
+		MPI_Allreduce(MPI_IN_PLACE, a, n, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
 	}
+
+	MPI_Gather(local_array, local_n, MPI_DOUBLE, a, local_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+
+	return MPI_SUCCESS;
 }
 
-void exchange(int a[], int i, int j)
+void exchange(double* a, int i, int j)
 {
 	int t = a[i];
 	a[i] = a[j];
 	a[j] = t;
 }
-void compare(int a[], int i, int j, int dir)
+void compare(double* a, int i, int j, int dir)
 {
 	if (dir == (a[i] > a[j]))
 		exchange(a, i, j);
 }
-void bitonicMerge(int a[], int low, int cnt, int dir)
+void bitonicMerge(double* a, int low, int cnt, int dir)
 {
 	if (cnt > 1)
 	{
@@ -214,7 +229,7 @@ void bitonicMerge(int a[], int low, int cnt, int dir)
 		bitonicMerge(a, low + k, k, dir);
 	}
 }
-void bitonicSort(int a[], int low, int cnt, int dir)
+void bitonicSort(double* a, int low, int cnt, int dir)
 {
 	if (cnt > 1)
 	{
@@ -226,10 +241,23 @@ void bitonicSort(int a[], int low, int cnt, int dir)
 	}
 }
 
-
-void MPI_Bitonic_sort(int a[], int n, int dir)
+int MPI_Bitonic_sort(int n, double* a, int root, MPI_Comm comm)
 {
-	bitonicSort(a, 0, n, dir);
+	int rank, size, local_n;
+
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+	local_n = n / size;
+
+	double* local_a = (double*)malloc(local_n * sizeof(double));
+
+	MPI_Scatter(a, local_n, MPI_DOUBLE, local_a, local_n, MPI_DOUBLE, root, MPI_COMM_WORLD);
+	bitonicSort(local_a, 0, local_n, 1);
+	MPI_Gather(local_a, local_n, MPI_DOUBLE, a, local_n, MPI_DOUBLE, root, MPI_COMM_WORLD);
+
+	free(local_a);
+	return MPI_SUCCESS;
 }
 
 int isSorted(double* arr, int n) {
@@ -292,64 +320,7 @@ int MPI_Sort_bucket(int n, double* a, double max, int root, MPI_Comm comm)
 
 	return MPI_SUCCESS;
 }
-void merge_sort(int n, double* a) {
 
-	double* c;
-	int i;
-
-	if (n <= 1) return;
-	if (n == 2) {
-
-		if (a[0] > a[1]) {
-			swap(&a[0], &a[1]);
-		}
-		return;
-	}
-
-	merge_sort(n / 2, a);
-	merge_sort(n - n / 2, a + n / 2);
-
-	c = merge_array(n / 2, a, n - n / 2, a + n / 2);
-
-	for (i = 0; i < n; i++) {
-		a[i] = c[i];
-	}
-}
-void swap(double* a, double* b) {
-	double temp;
-
-	temp = *a;
-	*a = *b;
-	*b = temp;
-}
-double* merge_array(int n, double* a, int m, double* b) {
-
-	int i, j, k;
-	double* c = (double*)calloc(n + m, sizeof(double));
-
-	for (i = j = k = 0; (i < n) && (j < m);) {
-		if (a[i] <= b[j]) {
-			c[k++] = a[i++];
-		}
-		else {
-			c[k++] = b[j++];
-		}
-	}
-
-	if (i == n) {
-		for (; j < m; )
-		{
-			c[k++] = b[j++];
-		}
-	}
-	else {
-		for (; i < n; )
-		{
-			c[k++] = a[i++];
-		}
-	}
-	return c;
-}
 int MPI_Is_sorted(int n, double* array, int* isSorted, int root, MPI_Comm comm)
 {
 	int rank, size;
@@ -491,4 +462,112 @@ double* merge(int n, double* a, int m, double* b) {
 		}
 	}
 	return c;
+}
+int MPI_Direct_Sort(int n, double* array, int root, MPI_Comm comm)
+{
+	int rank, size;
+	MPI_Comm_size(comm, &size);
+	MPI_Comm_size(comm, &rank);
+	double* local_a = (double*)calloc(n / size, sizeof(double));
+
+	int err = MPI_Scatter(array, n / size, MPI_DOUBLE, local_a, n / size, MPI_DOUBLE, root, comm);
+	if (err != MPI_SUCCESS)
+	{
+		free(local_a);
+		return err;
+	}
+	sort(n / size, local_a);
+
+	int err1 = MPI_Gather(local_a, n / size, MPI_DOUBLE, array, n / size, MPI_DOUBLE, root, comm);
+	if (err1 != MPI_SUCCESS)
+	{
+		free(local_a);
+		return err;
+	}
+
+	if (rank == root)
+	{
+		for (int i = 0; i < size; i++)
+		{
+			double* aux = merge_array((i + 1) * n / size, array, n / size, array + (i + 1) * n / size);
+			for (int j = 0; j < (i + 2) * n / size; j++)
+			{
+				array[j] = aux[j];
+			}
+		}
+	}
+	free(local_a);
+
+	return MPI_SUCCESS;
+}
+void merge_sort(int n, double* a) {
+
+	double* c;
+	int i;
+
+	if (n <= 1) return;
+	if (n == 2) {
+
+		if (a[0] > a[1]) {
+			swap(&a[0], &a[1]);
+		}
+		return;
+	}
+
+	merge_sort(n / 2, a);
+	merge_sort(n - n / 2, a + n / 2);
+
+	c = merge_array(n / 2, a, n - n / 2, a + n / 2);
+
+	for (i = 0; i < n; i++) {
+		a[i] = c[i];
+	}
+}
+void swap(double* a, double* b) {
+	double temp;
+
+	temp = *a;
+	*a = *b;
+	*b = temp;
+}
+double* merge_array(int n, double* a, int m, double* b) {
+
+	int i, j, k;
+	double* c = (double*)calloc(n + m, sizeof(double));
+
+	for (i = j = k = 0; (i < n) && (j < m);) {
+		if (a[i] <= b[j]) {
+			c[k++] = a[i++];
+		}
+		else {
+			c[k++] = b[j++];
+		}
+	}
+
+	if (i == n) {
+		for (; j < m; )
+		{
+			c[k++] = b[j++];
+		}
+	}
+	else {
+		for (; i < n; )
+		{
+			c[k++] = a[i++];
+		}
+	}
+	return c;
+}
+void sort(int n, double* a) {
+
+	for (int i = 0; i < n; i++)
+	{
+		for (int j = 0; j < n; j++)
+		{
+			if (a[i] > a[j])
+			{
+				swap(&a[i], &a[j]);
+			}
+		}
+	}
 }
