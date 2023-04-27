@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="MpiSorts.cpp">
+    <ClCompile Include="MpiSorts.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
